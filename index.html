@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tesla DCF Valuation Model | FinanceTamil</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --red: #E31937;
+    --dark: #0a0a0a;
+    --surface: #111111;
+    --surface2: #1a1a1a;
+    --border: #2a2a2a;
+    --text: #e8e8e8;
+    --muted: #666;
+    --green: #00c853;
+    --amber: #ffab00;
+    --blue: #448aff;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--dark);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    overflow-x: hidden;
+  }
+
+  /* ── HEADER ── */
+  header {
+    position: relative;
+    padding: 80px 60px 60px;
+    border-bottom: 1px solid var(--border);
+    overflow: hidden;
+  }
+  header::before {
+    content: 'TSLA';
+    position: absolute;
+    right: -20px;
+    top: -40px;
+    font-family: 'Bebas Neue';
+    font-size: 280px;
+    color: rgba(227,25,55,0.04);
+    letter-spacing: -10px;
+    pointer-events: none;
+    user-select: none;
+  }
+  .badge {
+    display: inline-block;
+    background: var(--red);
+    color: #fff;
+    font-family: 'DM Mono';
+    font-size: 11px;
+    letter-spacing: 2px;
+    padding: 4px 12px;
+    margin-bottom: 20px;
+    text-transform: uppercase;
+  }
+  h1 {
+    font-family: 'Bebas Neue';
+    font-size: clamp(52px, 8vw, 100px);
+    line-height: 0.9;
+    letter-spacing: 2px;
+    color: #fff;
+  }
+  h1 span { color: var(--red); }
+  .subtitle {
+    margin-top: 20px;
+    font-family: 'DM Mono';
+    font-size: 13px;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+  .meta-row {
+    display: flex;
+    gap: 40px;
+    margin-top: 40px;
+    flex-wrap: wrap;
+  }
+  .meta-item { display: flex; flex-direction: column; gap: 4px; }
+  .meta-label { font-family: 'DM Mono'; font-size: 10px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; }
+  .meta-value { font-family: 'DM Mono'; font-size: 22px; color: #fff; font-weight: 500; }
+  .meta-value.up { color: var(--green); }
+  .meta-value.down { color: var(--red); }
+
+  /* ── NAV TABS ── */
+  nav {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  nav::-webkit-scrollbar { display: none; }
+  .tab {
+    font-family: 'DM Mono';
+    font-size: 12px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 18px 28px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    color: var(--muted);
+    white-space: nowrap;
+    transition: all 0.2s;
+    background: none;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--red); border-bottom-color: var(--red); }
+
+  /* ── MAIN ── */
+  main { padding: 0 60px 80px; }
+  .section { display: none; padding-top: 50px; animation: fadeIn 0.3s ease; }
+  .section.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  .section-title {
+    font-family: 'Bebas Neue';
+    font-size: 36px;
+    letter-spacing: 2px;
+    color: #fff;
+    margin-bottom: 30px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ── TABLES ── */
+  .table-wrap { overflow-x: auto; margin-bottom: 40px; }
+  table { width: 100%; border-collapse: collapse; font-family: 'DM Mono'; font-size: 13px; }
+  th {
+    background: var(--surface);
+    color: var(--muted);
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 12px 16px;
+    text-align: right;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  th:first-child { text-align: left; }
+  td {
+    padding: 10px 16px;
+    text-align: right;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    white-space: nowrap;
+    color: #ccc;
+  }
+  td:first-child { text-align: left; color: var(--text); }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+  .section-row td { background: var(--surface2); color: var(--muted); font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; padding: 6px 16px; }
+  .total-row td { color: #fff; font-weight: 500; border-top: 1px solid var(--border); }
+  .projected { color: var(--blue) !important; }
+  .neg { color: var(--red) !important; }
+  .pos { color: var(--green) !important; }
+
+  /* ── DCF SUMMARY CARDS ── */
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1px;
+    background: var(--border);
+    margin-bottom: 40px;
+    border: 1px solid var(--border);
+  }
+  .card {
+    background: var(--surface);
+    padding: 28px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .card-label { font-family: 'DM Mono'; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+  .card-value { font-family: 'Bebas Neue'; font-size: 42px; letter-spacing: 1px; color: #fff; }
+  .card-value.accent { color: var(--red); }
+  .card-value.green { color: var(--green); }
+  .card-sub { font-family: 'DM Mono'; font-size: 11px; color: var(--muted); }
+
+  /* ── SCENARIOS ── */
+  .scenarios { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1px; background: var(--border); border: 1px solid var(--border); margin-bottom: 40px; }
+  .scenario { padding: 30px; background: var(--surface); }
+  .scenario.bear .s-label { color: var(--red); }
+  .scenario.base .s-label { color: var(--amber); }
+  .scenario.bull .s-label { color: var(--green); }
+  .s-label { font-family: 'Bebas Neue'; font-size: 28px; letter-spacing: 2px; margin-bottom: 16px; }
+  .s-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-family: 'DM Mono'; font-size: 12px; }
+  .s-row:last-child { border-bottom: none; }
+  .s-key { color: var(--muted); }
+  .s-val { color: var(--text); }
+
+  /* ── SENSITIVITY TABLE ── */
+  .sens-table { border-collapse: collapse; font-family: 'DM Mono'; font-size: 12px; margin: 0 auto; }
+  .sens-table th, .sens-table td { padding: 10px 18px; text-align: center; border: 1px solid var(--border); }
+  .sens-table th { background: var(--surface2); color: var(--muted); font-size: 10px; letter-spacing: 1.5px; }
+  .sens-table td { background: var(--surface); }
+  .sens-axis { background: var(--surface2) !important; color: var(--muted) !important; font-size: 10px; letter-spacing: 1px; }
+  .sens-hi { background: rgba(0,200,83,0.15) !important; color: var(--green) !important; }
+  .sens-mid { background: rgba(255,171,0,0.1) !important; color: var(--amber) !important; }
+  .sens-lo { background: rgba(227,25,55,0.12) !important; color: #ff6b6b !important; }
+
+  /* ── ASSUMPTIONS ── */
+  .assump-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 40px; }
+  .assump-block { background: var(--surface); border: 1px solid var(--border); padding: 24px; }
+  .assump-block h3 { font-family: 'DM Mono'; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--red); margin-bottom: 18px; }
+  .assump-row { display: flex; justify-content: space-between; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.04); gap: 20px; }
+  .assump-row:last-child { border-bottom: none; }
+  .assump-name { font-family: 'DM Mono'; font-size: 12px; color: var(--muted); flex: 1; }
+  .assump-vals { display: flex; gap: 16px; }
+  .assump-year { text-align: right; }
+  .assump-yr-label { font-family: 'DM Mono'; font-size: 9px; color: var(--muted); letter-spacing: 1px; }
+  .assump-yr-val { font-family: 'DM Mono'; font-size: 13px; color: var(--blue); }
+  .source-note { font-family: 'DM Mono'; font-size: 10px; color: rgba(100,100,100,0.8); margin-top: 6px; font-style: italic; max-width: 400px; }
+
+  /* ── WACC BOX ── */
+  .wacc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px; background: var(--border); border: 1px solid var(--border); margin-bottom: 40px; }
+  .wacc-item { background: var(--surface); padding: 20px; }
+  .wacc-item .k { font-family: 'DM Mono'; font-size: 10px; color: var(--muted); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 6px; }
+  .wacc-item .v { font-family: 'DM Mono'; font-size: 20px; color: #fff; }
+  .wacc-item.highlight .v { color: var(--red); font-size: 26px; }
+
+  /* ── N8N FLOW ── */
+  .flow { display: flex; align-items: center; gap: 0; flex-wrap: wrap; margin-bottom: 40px; }
+  .flow-node {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 20px 22px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    min-width: 130px;
+    position: relative;
+    transition: border-color 0.2s;
+  }
+  .flow-node:hover { border-color: var(--red); }
+  .flow-icon { font-size: 28px; }
+  .flow-name { font-family: 'DM Mono'; font-size: 11px; color: var(--text); text-align: center; letter-spacing: 0.5px; }
+  .flow-type { font-family: 'DM Mono'; font-size: 9px; color: var(--muted); text-align: center; }
+  .flow-arrow { color: var(--muted); font-size: 18px; padding: 0 6px; }
+
+  /* ── FOOTER ── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 30px 60px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  footer p { font-family: 'DM Mono'; font-size: 11px; color: var(--muted); }
+  .disclaimer { font-family: 'DM Mono'; font-size: 10px; color: rgba(100,100,100,0.6); max-width: 600px; line-height: 1.6; }
+
+  /* ── CHART BAR ── */
+  .chart-section { margin-bottom: 40px; }
+  .bar-chart { display: flex; flex-direction: column; gap: 12px; }
+  .bar-row { display: flex; align-items: center; gap: 16px; }
+  .bar-label { font-family: 'DM Mono'; font-size: 12px; color: var(--muted); width: 60px; text-align: right; flex-shrink: 0; }
+  .bar-track { flex: 1; height: 28px; background: var(--surface); position: relative; border: 1px solid var(--border); }
+  .bar-fill { height: 100%; position: relative; display: flex; align-items: center; }
+  .bar-val { font-family: 'DM Mono'; font-size: 11px; padding: 0 8px; color: #fff; white-space: nowrap; }
+  .bar-actual { background: rgba(100,100,100,0.4); }
+  .bar-proj { background: rgba(68,138,255,0.35); border-right: 2px solid var(--blue); }
+
+  @media (max-width: 768px) {
+    header, main, footer { padding-left: 20px; padding-right: 20px; }
+    .assump-grid { grid-template-columns: 1fr; }
+    .scenarios { grid-template-columns: 1fr; }
+    .meta-row { gap: 24px; }
+    header::before { font-size: 160px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="badge">Equity Research · DCF Analysis</div>
+  <h1>TESLA<br><span>VALUATION</span><br>MODEL</h1>
+  <p class="subtitle">DISCOUNTED CASH FLOW · 2026E–2028E · BY FINANCETAMIL</p>
+  <div class="meta-row">
+    <div class="meta-item">
+      <span class="meta-label">Implied Price</span>
+      <span class="meta-value">$25.61</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Enterprise Value</span>
+      <span class="meta-value">$61.7B</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">WACC</span>
+      <span class="meta-value">12.4%</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Terminal Growth</span>
+      <span class="meta-value">3.0%</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Model Date</span>
+      <span class="meta-value" style="font-size:16px">Feb 2026</span>
+    </div>
+  </div>
+</header>
+
+<nav>
+  <button class="tab active" onclick="showTab('dcf')">DCF Output</button>
+  <button class="tab" onclick="showTab('income')">Income Statement</button>
+  <button class="tab" onclick="showTab('cashflow')">Cash Flow</button>
+  <button class="tab" onclick="showTab('balance')">Balance Sheet</button>
+  <button class="tab" onclick="showTab('assumptions')">Assumptions</button>
+  <button class="tab" onclick="showTab('automation')">N8N Automation</button>
+</nav>
+
+<main>
+
+  <!-- ── DCF OUTPUT ── -->
+  <div id="tab-dcf" class="section active">
+    <div class="section-title">DCF Valuation Output</div>
+
+    <div class="cards">
+      <div class="card">
+        <div class="card-label">Enterprise Value</div>
+        <div class="card-value">$61.7B</div>
+        <div class="card-sub">Sum of PV(FCF) + PV(TV)</div>
+      </div>
+      <div class="card">
+        <div class="card-label">+ Net Cash</div>
+        <div class="card-value" style="font-size:32px">+$28.6B</div>
+        <div class="card-sub">Cash minus total debt</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Equity Value</div>
+        <div class="card-value">$90.4B</div>
+        <div class="card-sub">EV + net cash position</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Shares Outstanding</div>
+        <div class="card-value" style="font-size:32px">3,528M</div>
+        <div class="card-sub">Diluted share count</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Implied Share Price</div>
+        <div class="card-value accent">$25.61</div>
+        <div class="card-sub">Base case intrinsic value</div>
+      </div>
+    </div>
+
+    <div class="section-title">FCFF Bridge</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Metric ($M)</th>
+            <th>2021A</th><th>2022A</th><th>2023A</th><th>2024A</th><th>2025A</th>
+            <th class="projected">2026E</th><th class="projected">2027E</th><th class="projected">2028E</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>EBIT</td><td>6,523</td><td>13,692</td><td>8,891</td><td>7,659</td><td>4,355</td><td class="projected">4,775</td><td class="projected">6,338</td><td class="projected">8,377</td></tr>
+          <tr><td>Tax (25.5%)</td><td>(1,663)</td><td>(3,491)</td><td>(2,267)</td><td>(1,953)</td><td>(1,111)</td><td class="projected neg">(1,218)</td><td class="projected neg">(1,616)</td><td class="projected neg">(2,136)</td></tr>
+          <tr class="total-row"><td>NOPAT</td><td>4,860</td><td>10,201</td><td>6,624</td><td>5,706</td><td>3,244</td><td class="projected">3,557</td><td class="projected">4,721</td><td class="projected">6,241</td></tr>
+          <tr><td>+ D&A</td><td>2,911</td><td>3,543</td><td>4,667</td><td>5,368</td><td>6,148</td><td class="projected">6,455</td><td class="projected">6,778</td><td class="projected">7,117</td></tr>
+          <tr><td>− Capex</td><td>(6,514)</td><td>(7,163)</td><td>(8,899)</td><td>(11,342)</td><td>(8,527)</td><td class="projected neg">(8,108)</td><td class="projected neg">(8,040)</td><td class="projected neg">(8,377)</td></tr>
+          <tr><td>Δ Working Capital</td><td>—</td><td>(2,365)</td><td>(809)</td><td>(1,420)</td><td>776</td><td class="projected neg">(26)</td><td class="projected pos">1,147</td><td class="projected pos">1,724</td></tr>
+          <tr class="total-row"><td>FCFF</td><td>—</td><td>4,216</td><td>1,583</td><td>(1,688)</td><td>1,641</td><td class="projected">1,878</td><td class="projected pos">4,607</td><td class="projected pos">6,705</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section-title">Sensitivity Analysis — Price Per Share ($)</div>
+    <p style="font-family:'DM Mono';font-size:11px;color:var(--muted);margin-bottom:20px;">WACC (rows) vs Terminal Growth Rate (columns)</p>
+    <div class="table-wrap">
+      <table class="sens-table">
+        <thead>
+          <tr>
+            <th>WACC \ g</th>
+            <th>2.0%</th><th>2.5%</th><th>3.0%</th><th>3.5%</th><th>4.0%</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="sens-axis">9%</td><td class="sens-hi">32.55</td><td class="sens-hi">34.31</td><td class="sens-hi">36.36</td><td class="sens-hi">38.78</td><td class="sens-hi">41.69</td></tr>
+          <tr><td class="sens-axis">10%</td><td class="sens-hi">29.31</td><td class="sens-hi">30.61</td><td class="sens-hi">32.11</td><td class="sens-hi">33.84</td><td class="sens-hi">35.85</td></tr>
+          <tr><td class="sens-axis">11%</td><td class="sens-mid">26.79</td><td class="sens-mid">27.80</td><td class="sens-mid">28.93</td><td class="sens-mid">30.22</td><td class="sens-mid">31.68</td></tr>
+          <tr><td class="sens-axis">12%</td><td class="sens-mid">24.78</td><td class="sens-mid">25.57</td><td class="sens-mid">26.46</td><td class="sens-mid">27.45</td><td class="sens-mid">28.56</td></tr>
+          <tr><td class="sens-axis" style="color:var(--red)!important">12.4%</td><td class="sens-lo">23.13</td><td class="sens-lo">23.78</td><td style="background:rgba(227,25,55,0.25)!important;color:#fff!important;font-weight:600;border:2px solid var(--red)!important">25.61</td><td class="sens-lo">24.49</td><td class="sens-lo">26.14</td></tr>
+          <tr><td class="sens-axis">14%</td><td class="sens-lo">21.77</td><td class="sens-lo">22.30</td><td class="sens-lo">22.88</td><td class="sens-lo">23.51</td><td class="sens-lo">24.21</td></tr>
+          <tr><td class="sens-axis">15%</td><td class="sens-lo">20.61</td><td class="sens-lo">21.06</td><td class="sens-lo">21.54</td><td class="sens-lo">22.06</td><td class="sens-lo">22.62</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section-title" style="margin-top:40px">Scenario Analysis</div>
+    <div class="scenarios">
+      <div class="scenario bear">
+        <div class="s-label">Bear Case</div>
+        <div class="s-row"><span class="s-key">Revenue Growth</span><span class="s-val neg">−5%</span></div>
+        <div class="s-row"><span class="s-key">EBITDA Margin</span><span class="s-val">17.0%</span></div>
+        <div class="s-row"><span class="s-key">WACC</span><span class="s-val">14.0%</span></div>
+        <div class="s-row"><span class="s-key">Terminal Growth</span><span class="s-val">1.5%</span></div>
+        <div class="s-row" style="margin-top:8px"><span class="s-key" style="color:var(--red);font-size:14px">Implied Price</span><span class="s-val neg" style="font-size:20px">~$18</span></div>
+      </div>
+      <div class="scenario base">
+        <div class="s-label">Base Case</div>
+        <div class="s-row"><span class="s-key">Revenue Growth</span><span class="s-val">+5%</span></div>
+        <div class="s-row"><span class="s-key">EBITDA Margin</span><span class="s-val">18.5%</span></div>
+        <div class="s-row"><span class="s-key">WACC</span><span class="s-val">12.4%</span></div>
+        <div class="s-row"><span class="s-key">Terminal Growth</span><span class="s-val">2.5%</span></div>
+        <div class="s-row" style="margin-top:8px"><span class="s-key" style="color:var(--amber);font-size:14px">Implied Price</span><span class="s-val" style="font-size:20px;color:var(--amber)">$25.61</span></div>
+      </div>
+      <div class="scenario bull">
+        <div class="s-label">Bull Case</div>
+        <div class="s-row"><span class="s-key">Revenue Growth</span><span class="s-val pos">+8%</span></div>
+        <div class="s-row"><span class="s-key">EBITDA Margin</span><span class="s-val">21.0%</span></div>
+        <div class="s-row"><span class="s-key">WACC</span><span class="s-val">10.0%</span></div>
+        <div class="s-row"><span class="s-key">Terminal Growth</span><span class="s-val">3.5%</span></div>
+        <div class="s-row" style="margin-top:8px"><span class="s-key" style="color:var(--green);font-size:14px">Implied Price</span><span class="s-val pos" style="font-size:20px">~$38</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── INCOME STATEMENT ── -->
+  <div id="tab-income" class="section">
+    <div class="section-title">Income Statement</div>
+
+    <div class="chart-section">
+      <p style="font-family:'DM Mono';font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:16px">Revenue ($M)</p>
+      <div class="bar-chart">
+        <div class="bar-row"><span class="bar-label">2021A</span><div class="bar-track"><div class="bar-fill bar-actual" style="width:52%"><span class="bar-val">53,823</span></div></div></div>
+        <div class="bar-row"><span class="bar-label">2022A</span><div class="bar-track"><div class="bar-fill bar-actual" style="width:79%"><span class="bar-val">81,462</span></div></div></div>
+        <div class="bar-row"><span class="bar-label">2023A</span><div class="bar-track"><div class="bar-fill bar-actual" style="width:94%"><span class="bar-val">96,773</span></div></div></div>
+        <div class="bar-row"><span class="bar-label">2024A</span><div class="bar-track"><div class="bar-fill bar-actual" style="width:95%"><span class="bar-val">97,690</span></div></div></div>
+        <div class="bar-row"><span class="bar-label">2025A</span><div class="bar-track"><div class="bar-fill bar-actual" style="width:92%"><span class="bar-val">94,827</span></div></div></div>
+        <div class="bar-row"><span class="bar-label">2026E</span><div class="bar-track"><div class="bar-fill bar-proj" style="width:87%"><span class="bar-val">90,086</span></div></div></div>
+        <div class="bar-row"><span class="bar-label">2027E</span><div class="bar-track"><div class="bar-fill bar-proj" style="width:92%"><span class="bar-val">94,590</span></div></div></div>
+        <div class="bar-row"><span class="bar-label">2028E</span><div class="bar-track"><div class="bar-fill bar-proj" style="width:99%"><span class="bar-val">102,157</span></div></div></div>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>($M)</th>
+            <th>2021A</th><th>2022A</th><th>2023A</th><th>2024A</th><th>2025A</th>
+            <th class="projected">2026E</th><th class="projected">2027E</th><th class="projected">2028E</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="section-row"><td colspan="9">REVENUES</td></tr>
+          <tr class="total-row"><td>Revenue</td><td>53,823</td><td>81,462</td><td>96,773</td><td>97,690</td><td>94,827</td><td class="projected">90,086</td><td class="projected">94,590</td><td class="projected">102,157</td></tr>
+          <tr><td>YoY Growth</td><td>—</td><td class="pos">+51.4%</td><td class="pos">+18.8%</td><td class="pos">+0.9%</td><td class="neg">−2.9%</td><td class="projected neg">−5.0%</td><td class="projected pos">+5.0%</td><td class="projected pos">+8.0%</td></tr>
+          <tr class="section-row"><td colspan="9">COST OF REVENUES</td></tr>
+          <tr><td>Cost of Revenue</td><td>(40,217)</td><td>(60,609)</td><td>(79,113)</td><td>(80,240)</td><td>(77,733)</td><td class="projected neg">(73,420)</td><td class="projected neg">(76,145)</td><td class="projected neg">(81,215)</td></tr>
+          <tr class="total-row"><td>Gross Profit</td><td>13,606</td><td>20,853</td><td>17,660</td><td>17,450</td><td>17,094</td><td class="projected">16,666</td><td class="projected">18,445</td><td class="projected">20,942</td></tr>
+          <tr><td>Gross Margin %</td><td>25.3%</td><td>25.6%</td><td>18.2%</td><td>17.9%</td><td>18.0%</td><td class="projected blue">18.5%</td><td class="projected blue">19.5%</td><td class="projected blue">20.5%</td></tr>
+          <tr class="section-row"><td colspan="9">OPERATING EXPENSES</td></tr>
+          <tr><td>SG&A</td><td>(4,517)</td><td>(3,946)</td><td>(4,800)</td><td>(5,150)</td><td>(5,834)</td><td class="projected neg">(5,585)</td><td class="projected neg">(5,675)</td><td class="projected neg">(5,925)</td></tr>
+          <tr><td>R&D</td><td>(2,593)</td><td>(3,075)</td><td>(3,969)</td><td>(4,540)</td><td>(6,411)</td><td class="projected neg">(6,306)</td><td class="projected neg">(6,432)</td><td class="projected neg">(6,640)</td></tr>
+          <tr class="total-row"><td>Total Opex</td><td>(7,083)</td><td>(7,161)</td><td>(8,769)</td><td>(9,791)</td><td>(12,739)</td><td class="projected neg">(11,891)</td><td class="projected neg">(12,108)</td><td class="projected neg">(12,565)</td></tr>
+          <tr class="total-row"><td>EBIT</td><td>6,523</td><td>13,692</td><td>8,891</td><td>7,659</td><td>4,355</td><td class="projected">4,775</td><td class="projected">6,338</td><td class="projected">8,377</td></tr>
+          <tr><td>EBIT Margin %</td><td>12.1%</td><td>16.8%</td><td>9.2%</td><td>7.8%</td><td>4.6%</td><td class="projected blue">5.3%</td><td class="projected blue">6.7%</td><td class="projected blue">8.2%</td></tr>
+          <tr class="section-row"><td colspan="9">BELOW THE LINE</td></tr>
+          <tr><td>Interest Expense</td><td>(371)</td><td>(191)</td><td>(156)</td><td>(350)</td><td>(338)</td><td class="projected neg">(338)</td><td class="projected neg">(320)</td><td class="projected neg">(300)</td></tr>
+          <tr><td>Interest Income</td><td>56</td><td>297</td><td>1,066</td><td>1,569</td><td>1,680</td><td class="projected pos">1,674</td><td class="projected pos">1,849</td><td class="projected pos">2,253</td></tr>
+          <tr class="total-row"><td>Pretax Income</td><td>6,343</td><td>13,719</td><td>9,973</td><td>8,990</td><td>5,278</td><td class="projected">6,111</td><td class="projected">7,867</td><td class="projected">10,330</td></tr>
+          <tr><td>Income Tax</td><td>(699)</td><td>(1,132)</td><td>5,001</td><td>(1,837)</td><td>(1,423)</td><td class="projected neg">(1,558)</td><td class="projected neg">(2,006)</td><td class="projected neg">(2,634)</td></tr>
+          <tr class="total-row"><td>Net Income</td><td>5,519</td><td>12,556</td><td>14,997</td><td>7,091</td><td>3,794</td><td class="projected pos">4,495</td><td class="projected pos">5,806</td><td class="projected pos">7,643</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── CASH FLOW ── -->
+  <div id="tab-cashflow" class="section">
+    <div class="section-title">Cash Flow Statement</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>($M)</th>
+            <th>2021A</th><th>2022A</th><th>2023A</th><th>2024A</th><th>2025A</th>
+            <th class="projected">2026E</th><th class="projected">2027E</th><th class="projected">2028E</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="section-row"><td colspan="9">OPERATING ACTIVITIES</td></tr>
+          <tr><td>Net Income</td><td>5,519</td><td>12,556</td><td>14,997</td><td>7,091</td><td>3,794</td><td class="projected">4,495</td><td class="projected">5,806</td><td class="projected">7,643</td></tr>
+          <tr><td>D&A</td><td>2,911</td><td>3,543</td><td>4,667</td><td>5,368</td><td>6,148</td><td class="projected">6,455</td><td class="projected">6,778</td><td class="projected">7,117</td></tr>
+          <tr><td>Stock-Based Comp</td><td>2,121</td><td>1,560</td><td>1,812</td><td>1,999</td><td>2,825</td><td class="projected">2,500</td><td class="projected">2,600</td><td class="projected">2,700</td></tr>
+          <tr><td>Δ Accounts Receivable</td><td>(130)</td><td>(1,124)</td><td>(586)</td><td>(1,083)</td><td>(261)</td><td class="projected neg">(402)</td><td class="projected pos">210</td><td class="projected pos">73</td></tr>
+          <tr><td>Δ Inventory</td><td>(1,709)</td><td>(6,465)</td><td>(1,195)</td><td>937</td><td>(630)</td><td class="projected neg">(926)</td><td class="projected pos">8</td><td class="projected pos">319</td></tr>
+          <tr><td>Δ Accounts Payable</td><td>5,367</td><td>8,029</td><td>2,605</td><td>3,588</td><td>4,376</td><td class="projected neg">(900)</td><td class="projected pos">672</td><td class="projected pos">1,098</td></tr>
+          <tr class="total-row"><td>Operating Cash Flow</td><td>11,497</td><td>14,724</td><td>13,256</td><td>14,923</td><td>14,747</td><td class="projected">11,594</td><td class="projected pos">17,455</td><td class="projected pos">20,604</td></tr>
+          <tr class="section-row"><td colspan="9">INVESTING ACTIVITIES</td></tr>
+          <tr><td>Capital Expenditures</td><td>(6,514)</td><td>(7,163)</td><td>(8,899)</td><td>(11,342)</td><td>(8,527)</td><td class="projected neg">(8,108)</td><td class="projected neg">(8,040)</td><td class="projected neg">(8,377)</td></tr>
+          <tr class="total-row"><td>Investing Cash Flow</td><td>(7,868)</td><td>(11,973)</td><td>(15,584)</td><td>(18,787)</td><td>(15,478)</td><td class="projected neg">(8,108)</td><td class="projected neg">(8,040)</td><td class="projected neg">(8,377)</td></tr>
+          <tr class="section-row"><td colspan="9">FREE CASH FLOW</td></tr>
+          <tr class="total-row"><td>Free Cash Flow</td><td>4,983</td><td>7,561</td><td>4,357</td><td>3,581</td><td>6,220</td><td class="projected">3,486</td><td class="projected pos">9,415</td><td class="projected pos">12,227</td></tr>
+          <tr><td>FCF Growth</td><td>+83.8%</td><td class="pos">+51.7%</td><td class="neg">−42.4%</td><td class="neg">−17.8%</td><td class="pos">+73.7%</td><td class="projected neg">−44.0%</td><td class="projected pos">+170.1%</td><td class="projected pos">+29.9%</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── BALANCE SHEET ── -->
+  <div id="tab-balance" class="section">
+    <div class="section-title">Balance Sheet</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>($M)</th>
+            <th>2021A</th><th>2022A</th><th>2023A</th><th>2024A</th><th>2025A</th>
+            <th class="projected">2026E</th><th class="projected">2027E</th><th class="projected">2028E</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="section-row"><td colspan="9">CURRENT ASSETS</td></tr>
+          <tr><td>Cash & Marketable Securities</td><td>17,707</td><td>22,185</td><td>29,094</td><td>36,563</td><td>44,059</td><td class="projected pos">48,659</td><td class="projected pos">59,284</td><td class="projected pos">72,733</td></tr>
+          <tr><td>Accounts Receivable</td><td>1,986</td><td>3,116</td><td>3,319</td><td>4,255</td><td>4,598</td><td class="projected">4,196</td><td class="projected">4,406</td><td class="projected">4,478</td></tr>
+          <tr><td>Inventory</td><td>5,757</td><td>12,839</td><td>13,626</td><td>12,017</td><td>12,392</td><td class="projected">11,466</td><td class="projected">11,474</td><td class="projected">11,793</td></tr>
+          <tr><td>Prepaid Expenses</td><td>1,305</td><td>2,483</td><td>2,656</td><td>4,716</td><td>7,096</td><td class="projected">6,756</td><td class="projected">6,905</td><td class="projected">7,151</td></tr>
+          <tr class="total-row"><td>Total Current Assets</td><td>27,100</td><td>40,917</td><td>49,616</td><td>58,360</td><td>68,642</td><td class="projected pos">71,574</td><td class="projected pos">82,566</td><td class="projected pos">96,652</td></tr>
+          <tr class="section-row"><td colspan="9">NON-CURRENT ASSETS</td></tr>
+          <tr><td>Property, Plant & Equipment</td><td>31,176</td><td>36,635</td><td>45,123</td><td>51,501</td><td>56,186</td><td class="projected">57,838</td><td class="projected">59,100</td><td class="projected">60,360</td></tr>
+          <tr class="total-row"><td>Total Assets</td><td>62,131</td><td>82,338</td><td>106,618</td><td>122,070</td><td>137,806</td><td class="projected">142,103</td><td class="projected">154,645</td><td class="projected">170,373</td></tr>
+          <tr class="section-row"><td colspan="9">CURRENT LIABILITIES</td></tr>
+          <tr><td>Accounts Payable</td><td>10,025</td><td>15,255</td><td>14,431</td><td>12,474</td><td>13,371</td><td class="projected">12,471</td><td class="projected">13,143</td><td class="projected">14,240</td></tr>
+          <tr><td>Current LT Debt</td><td>1,088</td><td>1,016</td><td>1,975</td><td>2,343</td><td>1,569</td><td class="projected">1,569</td><td class="projected">1,500</td><td class="projected">1,400</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── ASSUMPTIONS ── -->
+  <div id="tab-assumptions" class="section">
+    <div class="section-title">Model Assumptions</div>
+
+    <div class="section-title" style="font-size:22px;margin-bottom:20px">WACC Components</div>
+    <div class="wacc-grid">
+      <div class="wacc-item"><div class="k">Risk-Free Rate</div><div class="v">4.40%</div></div>
+      <div class="wacc-item"><div class="k">Beta</div><div class="v">1.80×</div></div>
+      <div class="wacc-item"><div class="k">Equity Risk Premium</div><div class="v">4.50%</div></div>
+      <div class="wacc-item"><div class="k">Cost of Equity (ke)</div><div class="v">12.50%</div></div>
+      <div class="wacc-item"><div class="k">Cost of Debt (kd)</div><div class="v">2.30%</div></div>
+      <div class="wacc-item"><div class="k">Tax Rate</div><div class="v">25.5%</div></div>
+      <div class="wacc-item"><div class="k">kd (1-t)</div><div class="v">1.71%</div></div>
+      <div class="wacc-item"><div class="k">Weight of Equity</div><div class="v">99.1%</div></div>
+      <div class="wacc-item highlight"><div class="k">WACC</div><div class="v">12.40%</div></div>
+    </div>
+
+    <div class="assump-grid">
+      <div class="assump-block">
+        <h3>Revenue Assumptions</h3>
+        <div class="assump-row">
+          <div class="assump-name">Automotive Sales Growth %</div>
+          <div class="assump-vals">
+            <div class="assump-year"><div class="assump-yr-label">2026E</div><div class="assump-yr-val neg">−5.0%</div></div>
+            <div class="assump-year"><div class="assump-yr-label">2027E</div><div class="assump-yr-val">+5.0%</div></div>
+            <div class="assump-year"><div class="assump-yr-label">2028E</div><div class="assump-yr-val">+8.0%</div></div>
+          </div>
+        </div>
+        <div class="source-note">Deliveries fell 9% in 2025; recovery via Cybercab from 2027</div>
+        <div class="assump-row">
+          <div class="assump-name">Regulatory Credits ($M)</div>
+          <div class="assump-vals">
+            <div class="assump-year"><div class="assump-yr-label">2026E</div><div class="assump-yr-val">1,800</div></div>
+            <div class="assump-year"><div class="assump-yr-label">2027E</div><div class="assump-yr-val">1,600</div></div>
+            <div class="assump-year"><div class="assump-yr-label">2028E</div><div class="assump-yr-val">1,400</div></div>
+          </div>
+        </div>
+        <div class="source-note">Declining as competitors electrify</div>
+        <div class="assump-row">
+          <div class="assump-name">Energy Gen & Storage Growth</div>
+          <div class="assump-vals">
+            <div class="assump-year"><div class="assump-yr-label">2026E</div><div class="assump-yr-val">+27%</div></div>
+            <div class="assump-year"><div class="assump-yr-label">2027E</div><div class="assump-yr-val">+30%</div></div>
+            <div class="assump-year"><div class="assump-yr-label">2028E</div><div class="assump-yr-val">+28%</div></div>
+          </div>
+        </div>
+        <div class="source-note">Record deployments; Megapack 3 launching 2026</div>
+        <div class="assump-row">
+          <div class="assump-name">Services & Other Growth</div>
+          <div class="assump-vals">
+            <div class="assump-year"><div class="assump-yr-label">2026E</div><div class="assump-yr-val">+19%</div></div>
+            <div class="assump-year"><div class="assump-yr-label">2027E</div><div class="assump-yr-val">+20%</div></div>
+            <div class="assump-year"><div class="assump-yr-label">2028E</div><div class="assump-yr-val">+18%</div></div>
+          </div>
+        </div>
+        <div class="source-note">FSD subscriptions + Robotaxi expansion</div>
+      </div>
+
+      <div class="assump-block">
+        <h3>Margin Assumptions</h3>
+        <div class="assump-row">
+          <div class="assump-name">Gross Margin %</div>
+          <div class="assump-vals">
+            <div class="assump-year"><div class="assump-yr-label">2026E</div><div class="assump-yr-val">18.5%</div></div>
+            <div class="assump-year"><div class="assump-yr-label">2027E</div><div class="assump-yr-val">19.5%</div></div>
+            <div class="assump-year"><div class="assump-yr-label">2028E</div><div class="assump-yr-val">20.5%</div></div>
+          </div>
+        </div>
+        <div class="source-note">Gradual recovery via cost efficiency</div>
+        <div class="assump-row">
+          <div class="assump-name">R&D as % of Revenue</div>
+          <div class="assump-vals">
+            <div class="assump-year"><div class="assump-yr-label">2026E</div><div class="assump-yr-val">7.0%</div></div>
+            <div class="assump-year"><div class="assump-yr-label">2027E</div><div class="assump-yr-val">6.8%</div></div>
+            <div class="assump-year"><div class="assump-yr-label">2028E</div><div class="assump-yr-val">6.5%</div></div>
+          </div>
+        </div>
+        <div class="source-note">AI investment stabilising after 2025 peak</div>
+        <div class="assump-row">
+          <div class="assump-name">SG&A as % of Revenue</div>
+          <div class="assump-vals">
+            <div class="assump-year"><div class="assump-yr-label">2026E</div><div class="assump-yr-val">6.2%</div></div>
+            <div class="assump-year"><div class="assump-yr-label">2027E</div><div class="assump-yr-val">6.0%</div></div>
+            <div class="assump-year"><div class="assump-yr-label">2028E</div><div class="assump-yr-val">5.8%</div></div>
+          </div>
+        </div>
+        <div class="source-note">Operational leverage as revenue grows</div>
+        <div class="assump-row">
+          <div class="assump-name">Effective Tax Rate</div>
+          <div class="assump-vals">
+            <div class="assump-year"><div class="assump-yr-label">2026E</div><div class="assump-yr-val">25.5%</div></div>
+            <div class="assump-year"><div class="assump-yr-label">2027E</div><div class="assump-yr-val">25.5%</div></div>
+            <div class="assump-year"><div class="assump-yr-label">2028E</div><div class="assump-yr-val">25.5%</div></div>
+          </div>
+        </div>
+        <div class="source-note">Normalised rate removing 2023 one-off</div>
+      </div>
+
+      <div class="assump-block">
+        <h3>Capex & Working Capital</h3>
+        <div class="assump-row">
+          <div class="assump-name">Capex as % of Revenue</div>
+          <div class="assump-vals">
+            <div class="assump-year"><div class="assump-yr-label">2026E</div><div class="assump-yr-val">9.0%</div></div>
+            <div class="assump-year"><div class="assump-yr-label">2027E</div><div class="assump-yr-val">8.5%</div></div>
+            <div class="assump-year"><div class="assump-yr-label">2028E</div><div class="assump-yr-val">8.2%</div></div>
+          </div>
+        </div>
+        <div class="source-note">Post-peak investment cycle</div>
+        <div class="assump-row">
+          <div class="assump-name">D&A Growth %</div>
+          <div class="assump-vals">
+            <div class="assump-year"><div class="assump-yr-label">2026E</div><div class="assump-yr-val">5.0%</div></div>
+            <div class="assump-year"><div class="assump-yr-label">2027E</div><div class="assump-yr-val">5.0%</div></div>
+            <div class="assump-year"><div class="assump-yr-label">2028E</div><div class="assump-yr-val">5.0%</div></div>
+          </div>
+        </div>
+        <div class="source-note">Based on PP&E expansion trend</div>
+        <div class="assump-row">
+          <div class="assump-name">Accounts Receivable % Rev</div>
+          <div class="assump-vals">
+            <div class="assump-year"><div class="assump-yr-label">2026E</div><div class="assump-yr-val">4.9%</div></div>
+            <div class="assump-year"><div class="assump-yr-label">2027E</div><div class="assump-yr-val">4.9%</div></div>
+            <div class="assump-year"><div class="assump-yr-label">2028E</div><div class="assump-yr-val">4.9%</div></div>
+          </div>
+        </div>
+        <div class="source-note">Based on 2025 actual revenue</div>
+        <div class="assump-row">
+          <div class="assump-name">Inventory % of Revenue</div>
+          <div class="assump-vals">
+            <div class="assump-year"><div class="assump-yr-label">2026E</div><div class="assump-yr-val">13.1%</div></div>
+            <div class="assump-year"><div class="assump-yr-label">2027E</div><div class="assump-yr-val">13.0%</div></div>
+            <div class="assump-year"><div class="assump-yr-label">2028E</div><div class="assump-yr-val">12.8%</div></div>
+          </div>
+        </div>
+        <div class="source-note">Slight efficiency improvement</div>
+      </div>
+
+      <div class="assump-block">
+        <h3>Share Count</h3>
+        <div class="assump-row">
+          <div class="assump-name">Basic Shares Outstanding (M)</div>
+          <div class="assump-vals">
+            <div class="assump-year"><div class="assump-yr-label">2026E</div><div class="assump-yr-val">3,241</div></div>
+            <div class="assump-year"><div class="assump-yr-label">2027E</div><div class="assump-yr-val">3,257</div></div>
+            <div class="assump-year"><div class="assump-yr-label">2028E</div><div class="assump-yr-val">3,273</div></div>
+          </div>
+        </div>
+        <div class="source-note">0.5% annual dilution from SBC</div>
+        <div class="assump-row">
+          <div class="assump-name">Diluted Shares Outstanding (M)</div>
+          <div class="assump-vals">
+            <div class="assump-year"><div class="assump-yr-label">2026E</div><div class="assump-yr-val">3,546</div></div>
+            <div class="assump-year"><div class="assump-yr-label">2027E</div><div class="assump-yr-val">3,564</div></div>
+            <div class="assump-year"><div class="assump-yr-label">2028E</div><div class="assump-yr-val">3,582</div></div>
+          </div>
+        </div>
+        <div class="source-note">0.5% annual dilution from SBC</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── N8N AUTOMATION ── -->
+  <div id="tab-automation" class="section">
+    <div class="section-title">N8N Automation Workflow</div>
+    <p style="font-family:'DM Mono';font-size:12px;color:var(--muted);margin-bottom:36px;line-height:1.8">
+      This model is connected to a live N8N automation that runs every morning at 9am, fetches the latest TSLA price, compares it against the DCF targets, and sends a daily email alert.
+    </p>
+
+    <div class="flow">
+      <div class="flow-node">
+        <div class="flow-icon">⏰</div>
+        <div class="flow-name">Daily 9am<br>Trigger</div>
+        <div class="flow-type">schedule</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node">
+        <div class="flow-icon">🌐</div>
+        <div class="flow-name">Fetch TSLA<br>Price</div>
+        <div class="flow-type">GET Yahoo Finance</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node">
+        <div class="flow-icon">📊</div>
+        <div class="flow-name">Read DCF<br>Targets</div>
+        <div class="flow-type">Google Sheets</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node">
+        <div class="flow-icon">🔀</div>
+        <div class="flow-name">Combine Price<br>& Targets</div>
+        <div class="flow-type">merge node</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node">
+        <div class="flow-icon">🧮</div>
+        <div class="flow-name">Calculate<br>Valuation</div>
+        <div class="flow-type">manual logic</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node">
+        <div class="flow-icon">📧</div>
+        <div class="flow-name">Send Valuation<br>Email</div>
+        <div class="flow-type">Gmail / SMTP</div>
+      </div>
+    </div>
+
+    <div class="table-wrap" style="margin-top:40px">
+      <table>
+        <thead>
+          <tr><th>Node</th><th>Tool</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>1 · Daily Trigger</td><td>Schedule Node</td><td>Fires every day at 09:00 local time</td></tr>
+          <tr><td>2 · Fetch TSLA Price</td><td>HTTP Request</td><td>GET call to query1.finance.yahoo.com for live TSLA quote</td></tr>
+          <tr><td>3 · Read DCF Targets</td><td>Google Sheets</td><td>Reads bear / base / bull price targets from connected sheet</td></tr>
+          <tr><td>4 · Combine</td><td>Merge Node</td><td>Joins live price with scenario targets into single dataset</td></tr>
+          <tr><td>5 · Calculate Valuation</td><td>Function Node</td><td>Computes % upside/downside to each scenario target</td></tr>
+          <tr><td>6 · Send Email</td><td>Gmail Node</td><td>Formats and sends daily valuation summary email</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div style="background:var(--surface);border:1px solid var(--border);padding:24px;margin-top:30px;">
+      <p style="font-family:'DM Mono';font-size:10px;color:var(--red);letter-spacing:2px;text-transform:uppercase;margin-bottom:14px">Sample Daily Email Output</p>
+      <pre style="font-family:'DM Mono';font-size:12px;color:var(--muted);line-height:2">
+  TSLA Daily Valuation Update — 26 Feb 2026
+  ─────────────────────────────────────────
+  Live Price:     $XXX.XX
+  Bear Target:    ~$18.00   (upside/downside: XX%)
+  Base Target:    $25.61    (upside/downside: XX%)
+  Bull Target:    ~$38.00   (upside/downside: XX%)
+  ─────────────────────────────────────────
+  Model by: FinanceTamil
+      </pre>
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  <div>
+    <p style="color:var(--text);margin-bottom:4px;font-size:13px">FinanceTamil · Tesla DCF Valuation Model</p>
+    <p>Built with Excel + N8N · February 2026</p>
+  </div>
+  <p class="disclaimer">This model is for educational and informational purposes only. It does not constitute financial advice. All projections are estimates and subject to uncertainty. Past performance is not indicative of future results.</p>
+</footer>
+
+<script>
+  function showTab(id) {
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('tab-' + id).classList.add('active');
+    event.target.classList.add('active');
+  }
+</script>
+</body>
+</html>
